@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Accounting System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash/4.17.21/lodash.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .t-account {
+            display: inline-block;
+            margin: 10px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-width: 200px;
+        }
+        .t-account-header {
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid #000;
+            margin-bottom: 10px;
+        }
+        .t-account-body {
+            display: flex;
+            justify-content: space-between;
+        }
+        .t-account-side {
+            width: 45%;
+        }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+            margin-top: 20px;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            color: black;
+        }
+        .tab button:hover {
+            background-color: #ddd;
+        }
+        .tab button.active {
+            background-color: #ccc;
+        }
+        .tabcontent {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+        .error {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Accounting System</h1>
+        
+        <div class="form-group">
+            <label for="date">Date:</label>
+            <input type="date" id="date" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <input type="text" id="description" placeholder="Enter transaction description" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="accountCategory">Account Category:</label>
+            <select id="accountCategory" onchange="updateAccountTypes()" required>
+                <option value="">Select Category</option>
+                <option value="Asset">Assets</option>
+                <option value="Liability">Liabilities</option>
+                <option value="Income">Income</option>
+                <option value="Expense">Expenses</option>
+                <option value="Capital">Capital</option>
+                <option value="Contra-Asset">Contra Assets</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="accountType">Account Type:</label>
+            <select id="accountType" required>
+                <option value="">Select Account Type</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="amount">Amount:</label>
+            <input type="number" id="amount" min="0" step="0.01" placeholder="Enter amount" required>
+        </div>
+        
+        <button onclick="addTransaction()">Add Transaction</button>
+
+        <div class="tab">
+            <button class="tablinks" onclick="openTab(event, 'JournalEntries')" id="defaultOpen">Journal Entries</button>
+            <button class="tablinks" onclick="openTab(event, 'TAccounts')">T-Accounts</button>
+            <button class="tablinks" onclick="openTab(event, 'TrialBalance')">Trial Balance</button>
+        </div>
+
+        <div id="JournalEntries" class="tabcontent">
+            <h2>Journal Entries</h2>
+            <table id="journalTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Account</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                    </tr>
+                </thead>
+                <tbody id="journalBody"></tbody>
+            </table>
+        </div>
+
+        <div id="TAccounts" class="tabcontent">
+            <h2>T-Accounts</h2>
+            <div id="tAccountsContainer"></div>
+        </div>
+
+        <div id="TrialBalance" class="tabcontent">
+            <h2>Trial Balance</h2>
+            <table id="trialBalanceTable">
+                <thead>
+                    <tr>
+                        <th>Account</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                    </tr>
+                </thead>
+                <tbody id="trialBalanceBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Account categories and their types with normal balances
+        const accountStructure = {
+            Asset: {
+                normalBalance: "Debit",
+                accounts: [
+                    "Cash",
+                    "Accounts Receivable",
+                    "Inventory",
+                    "Prepaid Insurance",
+                    "Land",
+                    "Building",
+                    "Equipment",
+                    "Office Supplies",
+                    "Notes Receivable",
+                    "Security Deposit",
+                    "Patents",
+                    "Trademark",
+                    "Goodwill",
+                    "Work in Progress Inventory",
+                    "Finished Goods Inventory",
+                    "Unbilled Revenue"
+                ]
+            },
+            Liability: {
+                normalBalance: "Credit",
+                accounts: [
+                    "Accounts Payable",
+                    "Notes Payable",
+                    "Loan Payable",
+                    "Mortgage Payable",
+                    "Bonds Payable",
+                    "Income Tax Payable",
+                    "Accrued Expenses",
+                    "Deferred Revenue",
+                    "Warranty Liability",
+                    "Bank Loan",
+                    "Cash Overdraft",
+                    "Advances from Customers",
+                    "Accrued Payroll",
+                    "Dividends Payable"
+                ]
+            },
+            Income: {
+                normalBalance: "Credit",
+                accounts: [
+                    "Sales Revenue",
+                    "Service Revenue",
+                    "Interest Income",
+                    "Dividend Income",
+                    "Commission Income",
+                    "Consulting Fees",
+                    "License Revenue",
+                    "Royalties Income",
+                    "Franchise Income",
+                    "Contract Revenue",
+                    "Purchase Discounts",
+                    "Gain on Disposal of Asset"
+                ]
+            },
+            Expense: {
+                normalBalance: "Debit",
+                accounts: [
+                    "Cost of Goods Sold",
+                    "Rent Expense",
+                    "Utilities Expense",
+                    "Salaries and Wages",
+                    "Advertising Expense",
+                    "Insurance Expense",
+                    "Depreciation Expense",
+                    "Interest Expense",
+                    "Bad Debts Expense",
+                    "Bank Charges",
+                    "Repairs and Maintenance",
+                    "Travel Expense",
+                    "Legal Fees",
+                    "Research and Development",
+                    "Marketing Expense"
+                ]
+            },
+            Capital: {
+                normalBalance: "Credit",
+                accounts: [
+                    "Owner's Equity",
+                    "Retained Earnings",
+                    "Capital Contribution",
+                    "Partnership Contributions"
+                ]
+            },
+            "Contra-Asset": {
+                normalBalance: "Credit",
+                accounts: [
+                    "Accumulated Depreciation",
+                    "Allowance for Doubtful Accounts"
+                ]
+            }
+        };
+
+        // Initialize transactions array
+        let transactions = [];
+
+        function updateAccountTypes() {
+            const category = document.getElementById('accountCategory').value;
+            const accountTypeSelect = document.getElementById('accountType');
+            accountTypeSelect.innerHTML = '<option value="">Select Account Type</option>';
+
+            if (category && accountStructure[category]) {
+                accountStructure[category].accounts.forEach(account => {
+                    const option = document.createElement('option');
+                    option.value = account;
+                    option.textContent = account;
+                    accountTypeSelect.appendChild(option);
+                });
+            }
+        }
+
+        function addTransaction() {
+            const date = document.getElementById('date').value;
+            const description = document.getElementById('description').value;
+            const category = document.getElementById('accountCategory').value;
+            const account = document.getElementById('accountType').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            if (!date || !description || !category || !account || !amount) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const transaction = {
+                date,
+                description,
+                account,
+                amount,
+                type: accountStructure[category].normalBalance
+            };
+
+            transactions.push(transaction);
+            updateJournalEntries();
+            updateTAccounts();
+            updateTrialBalance();
+
+            // Clear form
+            document.getElementById('date').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('accountCategory').value = '';
+            document.getElementById('accountType').innerHTML = '<option value="">Select Account Type</option>';
+            document.getElementById('amount').value = '';
+        }
+
+        function updateJournalEntries() {
+            const journalBody = document.getElementById('journalBody');
+            journalBody.innerHTML = '';
+
+            transactions.forEach(transaction => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${transaction.date}</td>
+                    <td>${transaction.description}</td>
+                    <td>${transaction.account}</td>
+                    <td>${transaction.type === 'Debit' ? transaction.amount.toFixed(2) : ''}</td>
+                    <td>${transaction.type === 'Credit' ? transaction.amount.toFixed(2) : ''}</td>
+                `;
+                journalBody.appendChild(row);
+            });
+        }
+
+        function updateTAccounts() {
+            const container = document.getElementById('tAccountsContainer');
+            container.innerHTML = '';
+
+            // Group transactions by account
+            const accountGroups = _.groupBy(transactions, 'account');
+
+            Object.entries(accountGroups).forEach(([account, entries]) => {
+                const tAccount = document.createElement('div');
+                tAccount.className = 't-account';
+                
+                const debits = entries.filter(e => e.type === 'Debit')
+                    .map(e => e.amount)
+                    .reduce((sum, amount) => sum + amount, 0);
+                
+                const credits = entries.filter(e => e.type === 'Credit')
+                    .map(e => e.amount)
+                    .reduce((sum, amount) => sum + amount, 0);
+
+                tAccount.innerHTML = `
+                    <div class="t-account-header">${account}</div>
+                    <div class="t-account-body">
+                        <div class="t-account-side">
+                            <strong>Debit</strong><br>
+                            ${debits.toFixed(2)}
+                        </div>
+                        <div class="t-account-side">
+                            <strong>Credit</strong><br>
+                            ${credits.toFixed(2)}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(tAccount);
+            });
+        }
+
+        function updateTrialBalance() {
+            const trialBalanceBody = document.getElementById('trialBalanceBody');
+            trialBalanceBody.innerHTML = '';
+
+            // Group transactions by account
+            const accountGroups = _.groupBy(transactions, 'account');
+            
+            let totalDebits = 0;
+            let totalCredits = 0;
+
+            Object.entries(accountGroups).forEach(([account, entries]) => {
+                const debits = entries.filter(e => e.type === 'Debit')
+                    .map(e => e.amount)
+                    .reduce((sum, amount) => sum + amount, 0);
+                
+                const credits = entries.filter(e => e.type === 'Credit')
+                    .map(e => e.amount)
+                    .reduce((sum, amount) => sum + amount, 0);
+
+                const netAmount = debits - credits;
+                
+                if (netAmount !== 0) {
+                    totalDebits += netAmount > 0 ? netAmount : 0;
+                    totalCredits += netAmount < 0 ? -netAmount : 0;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${account}</td>
+                        <td>${netAmount > 0 ? netAmount.toFixed(2) : ''}</td>
+                        <td>${netAmount < 0 ? (-netAmount).toFixed(2) : ''}</td>
+                    `;
+                    trialBalanceBody.appendChild(row);
+                }
+            });
+
+            // Add total row
+            const totalRow = document.createElement('tr');
+            totalRow.innerHTML = `
+                <td><strong>Total</strong></td>
+                <td><strong>${totalDebits.toFixed(2)}</strong></td>
+                <td><strong>${totalCredits.toFixed(2)}</strong></td>
+            `;
+            trialBalanceBody.appendChild(totalRow);
+        }
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className</antArtifact>[Previous code remains exactly the same until the openTab function...]
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        // Open Journal Entries tab by default
+        document.getElementById("defaultOpen").click();
+    </script>
+</body>
+</html>
